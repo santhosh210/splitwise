@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const mongoFunctions = require("../helpers/mongoFunctions");
 const { client, getValue } = require("../helpers/redisFunctions");
-const { User, validateUser } = require("../models/user");
+const { User, validateUser } = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 router.get("/all", async (req, res) => {
@@ -38,6 +38,10 @@ router.post("/login", async (req, res) => {
       await newUser.save();
       otp = generateOTP();
       storeOTP(phone, otp);
+      return res.status(200).json({
+        message: "OTP generated successfully",
+        otp: otp,
+      });
     }
     // console.log(phone, token);
     return res.header("x-auth-token", token).status(200).json({
@@ -56,13 +60,14 @@ router.post("/verify", async (req, res) => {
     console.log("Req body =====>", req.body);
     let jwtSecretkey = "jwtSecretkey";
     const token = req.header("x-auth-token");
-    const decode = jwt.verify(token, jwtSecretkey);
-    console.log("decode ======>", decode);
+    if (token) {
+      const decode = jwt.verify(token, jwtSecretkey);
+      console.log("decode ======>", decode);
+    }
+
     const enteredOTP = req.body.otp;
     console.log("entered otp =========>", enteredOTP);
-
-    // const storedOTP = await getValue(decode);
-    const storedOTP = await client.get(decode);
+    const storedOTP = await client.get(req.body.phone);
     console.log("Stored OTP ==============> ", storedOTP);
 
     if (!storedOTP) {
@@ -80,20 +85,6 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-// function getValueFromRedis(key) {
-//   return new Promise((resolve, reject) => {
-//     console.log("#########reached redis to get otp by phone#############", key);
-//     client.get(key, (err, reply) => {
-//       if (err) {
-//         reject(err);
-//       } else {
-//         console.log(reply);
-//         resolve(reply);
-//       }
-//     });
-//   });
-// }
-
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000);
 }
@@ -102,5 +93,50 @@ function storeOTP(phone, otp) {
   console.log(phone, otp);
   client.set(phone, otp, "EX", 300);
 }
+
+//____________________________________________________________________
+
+// router.post("/send-friend-request", async (req, res) => {
+//   try {
+//     const { userId, friendId } = req.body;
+//     await User.findByIdAndUpdate(userId, {
+//       $addToSet: { friendRequests: friendId },
+//     });
+//     res.status(200).send("Friend request sent successfully");
+//   } catch (error) {
+//     res.status(500).send("Error sending friend request");
+//   }
+// });
+
+// // Accept friend request
+// router.post("/accept-friend-request", async (req, res) => {
+//   try {
+//     const { userId, friendId } = req.body;
+//     await User.findByIdAndUpdate(userId, {
+//       $addToSet: { friends: { friendId, status: "accepted" } },
+//       $pull: { friendRequests: friendId },
+//     });
+//     await User.findByIdAndUpdate(friendId, {
+//       $addToSet: { friends: { friendId: userId, status: "accepted" } },
+//     });
+//     res.status(200).send("Friend request accepted successfully");
+//   } catch (error) {
+//     res.status(500).send("Error accepting friend request");
+//   }
+// });
+
+// // Get user's friends
+// router.get("/:userId/friends", async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+//     const user = await User.findById(userId).populate("friends.friendId");
+//     const friends = user.friends.filter(
+//       (friend) => friend.status === "accepted"
+//     );
+//     res.status(200).json(friends);
+//   } catch (error) {
+//     res.status(500).send("Error retrieving user friends");
+//   }
+// });
 
 module.exports = router;

@@ -22,6 +22,19 @@ const userSchema = new mongoose.Schema({
       },
     },
   ],
+  friends: [
+    {
+      friendId: {
+        type: String,
+        unique: true,
+      },
+      status: {
+        type: String,
+        enum: ["pending", "accepted"],
+        default: "pending",
+      },
+    },
+  ],
 });
 
 const User = mongoose.model("User", userSchema);
